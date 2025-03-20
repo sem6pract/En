@@ -1,0 +1,114 @@
+Step 1: Configure Addressing and Loopbacks
+
+R1 Configuration:
+
+
+R1(config)# interface Loopback1  
+R1(config-if)# description Engineering Department  
+R1(config-if)# ip address 10.1.1.1 255.255.255.0  
+R1(config-if)# interface Serial0/0/0  
+R1(config-if)# ip address 10.1.12.1 255.255.255.0  
+R1(config-if)# clock rate 64000  
+R1(config-if)# no shutdown  
+R2 Configuration:
+
+
+R2(config)# interface Loopback2  
+R2(config-if)# description Marketing Department  
+R2(config-if)# ip address 10.1.2.1 255.255.255.0  
+R2(config-if)# interface Serial0/0/0  
+R2(config-if)# ip address 10.1.12.2 255.255.255.0  
+R2(config-if)# no shutdown  
+R2(config-if)# interface Serial0/0/1  
+R2(config-if)# ip address 10.1.23.2 255.255.255.0  
+R2(config-if)# clock rate 64000  
+R2(config-if)# no shutdown  
+R3 Configuration:
+
+
+R3(config)# interface Loopback3  
+R3(config-if)# description Accounting Department  
+R3(config-if)# ip address 10.1.3.1 255.255.255.0  
+R3(config-if)# interface Loopback20  
+R3(config-if)# description Connection to another AS  
+R3(config-if)# ip address 172.20.200.1 255.255.255.0  
+R3(config-if)# interface Serial0/0/1  
+R3(config-if)# ip address 10.1.23.3 255.255.255.0  
+R3(config-if)# no shutdown 
+ 
+Step 2: Add Interfaces into OSPF
+
+R1(config)# router ospf 1  
+R1(config-router)# network 10.1.12.0 0.0.0.255 area 0  
+R1(config-router)# network 10.1.1.0 0.0.0.255 area 0  
+R1(config)# interface Loopback1  
+R1(config-if)# ip ospf network point-to-point  
+R2 OSPF:
+
+
+R2(config)# router ospf 1  
+R2(config-router)# network 10.1.12.0 0.0.0.255 area 0  
+R2(config-router)# network 10.1.2.0 0.0.0.255 area 0  
+R2(config-router)# network 10.1.23.0 0.0.0.255 area 23  
+R2(config)# interface Loopback2  
+R2(config-if)# ip ospf network point-to-point  
+R3 OSPF:
+
+
+R3(config)# router ospf 1  
+R3(config-router)# network 10.1.23.0 0.0.0.255 area 23  
+R3(config-router)# network 10.1.3.0 0.0.0.255 area 23  
+R3(config)# interface Loopback3  
+R3(config-if)# ip ospf network point-to-point 
+ 
+Step 3: Configure a Stub Area
+
+R2 & R3 Stub Configuration:
+
+R2(config)# router ospf 1  
+R2(config-router)# area 23 stub  
+R3(config)# router ospf 1  
+R3(config-router)# area 23 stub
+  
+Step 4: Configure a Totally Stubby Area
+
+R2 Totally Stubby Configuration:
+Run
+Copy code
+R2(config)# router ospf 1  
+R2(config-router)# area 23 stub no-summary
+  
+Step 5: Configure a Not-So-Stubby Area (NSSA)
+
+Remove Stub & Configure NSSA:
+R2(config)# router ospf 1  
+R2(config-router)# no area 23 stub  
+R2(config-router)# area 23 nssa  
+R3(config)# router ospf 1  
+R3(config-router)# no area 23 stub  
+R3(config-router)# area 23 nssa  
+R3(config-router)# redistribute connected subnets  
+Add NSSA No-Summary:
+
+
+R2(config)# router ospf 1  
+R2(config-router)# area 23 nssa no-summary  
+
+Step 6: Configure OSPF Interface Authentication
+
+R2(config)# interface Serial0/0/1  
+R2(config-if)# ip ospf authentication  
+R2(config-if)# ip ospf authentication-key cisco  
+R3(config)# interface Serial0/0/1  
+R3(config-if)# ip ospf authentication  
+R3(config-if)# ip ospf authentication-key cisco  
+R2#show ip ospf interface serial 0/0/1
+
+
+R1(config)# interface Serial0/0/0  
+R1(config-if)# ip ospf authentication message-digest  
+R1(config-if)# ip ospf message-digest-key 1 md5 cisco  
+R2(config)# interface Serial0/0/0  
+R2(config-if)# ip ospf authentication message-digest  
+R2(config-if)# ip ospf message-digest-key 1 md5 cisco 
+R1#show ip ospf interface serial 0/0/0

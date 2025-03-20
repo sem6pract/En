@@ -1,0 +1,151 @@
+Practical No. 3A: Redistribution Between RIP and OSPF
+
+Step 1: Configure Loopbacks and Assign Addresses
+R1(config)# int Lo0
+R1(config-if)# ip address 172.16.1.1 255.255.255.0
+R1(config-if)# int Lo48
+R1(config-if)# ip address 192.168.48.1 255.255.255.0
+R1(config-if)# int Lo49
+R1(config-if)# ip address 192.168.49.1 255.255.255.0
+R1(config-if)# int Lo50
+R1(config-if)# ip address 192.168.50.1 255.255.255.0
+R1(config-if)# int Lo51
+R1(config-if)# ip address 192.168.51.1 255.255.255.0
+R1(config-if)# int Lo70
+R1(config-if)# ip address 192.168.70.1 255.255.255.0
+R1(config-if)# int S0/0/0
+R1(config-if)# ip address 172.16.12.1 255.255.255.0
+R1(config-if)# clock rate 64000
+R1(config-if)# bandwidth 64
+R1(config-if)# no shutdown
+Router R2
+
+R2(config)# int Lo0
+R2(config-if)# ip address 172.16.2.1 255.255.255.0
+R2(config-if)# int S0/0/0
+R2(config-if)# ip address 172.16.12.2 255.255.255.0
+R2(config-if)# bandwidth 64
+R2(config-if)# no shutdown
+R2(config-if)# int S0/0/1
+R2(config-if)# ip address 172.16.23.2 255.255.255.0
+R2(config-if)# clock rate 64000
+R2(config-if)# bandwidth 64
+R2(config-if)# no shutdown
+Router R3
+
+R3(config)# int Lo0
+R3(config-if)# ip address 172.16.3.1 255.255.255.0
+R3(config-if)# int Lo20
+R3(config-if)# ip address 192.168.20.1 255.255.255.0
+R3(config-if)# int Lo25
+R3(config-if)# ip address 192.168.25.1 255.255.255.0
+R3(config-if)# int Lo30
+R3(config-if)# ip address 192.168.30.1 255.255.255.0
+R3(config-if)# int Lo35
+R3(config-if)# ip address 192.168.35.1 255.255.255.0
+R3(config-if)# int Lo40
+R3(config-if)# ip address 192.168.40.1 255.255.255.0
+R3(config-if)# int S0/0/1
+R3(config-if)# ip address 172.16.23.3 255.255.255.0
+R3(config-if)# bandwidth 64
+R3(config-if)# no shutdown
+
+Step 2: Configure RIPv2
+Router R1 (RIP Configuration)
+R1(config)# router rip
+R1(config-router)# version 2
+R1(config-router)# no auto-summary
+R1(config-router)# network 172.16.0.0
+R1(config-router)# network 192.168.48.0
+R1(config-router)# network 192.168.49.0
+R1(config-router)# network 192.168.50.0
+R1(config-router)# network 192.168.51.0
+R1(config-router)# network 192.168.70.0
+R2(config)# router rip
+R2(config-router)# version 2
+R2(config-router)# no auto-summary
+R2(config-router)# network 172.16.0.0
+R1# show ip route rip
+R2# show ip route rip
+R1# show ip rip database
+R2# show ip rip database
+
+Step 3: Configure Passive Interfaces in RIP
+
+R2(config)# router rip
+R2(config-router)# passive-interface serial 0/0/1
+R1(config-router)# passive-interface loopback 0
+R1(config-router)# passive-interface loopback 48
+R1(config-router)# passive-interface loopback 49
+R1(config-router)# passive-interface loopback 50
+R1(config-router)# passive-interface loopback 51
+R1(config-router)# passive-interface loopback 70
+
+Step 4: Summarize a Supernet with RIP
+R1(config)# ip route 192.168.48.0 255.255.252.0 null0
+R1(config)# router rip
+R1(config-router)# redistribute static
+R1# sh ip route
+R2# sh ip route
+
+Step 5: Configure OSPF
+
+R2(config)# router ospf 1
+R2(config-router)# network 172.16.23.0 0.0.0.255 area 0
+
+R3(config)# router ospf 1
+R3(config-router)# network 172.16.0.0 0.0.255.255 area 0
+R3(config-router)# network 192.168.0.0 0.0.255.255 area 0
+R3(config)#int Lo0
+R3(config-if)# ip ospf network point-to-point
+R3(config)#int Lo20
+R3(config-if)# ip ospf network point-to-point
+R3(config)#int Lo25
+R3(config-if)# ip ospf network point-to-point
+R3(config)#int Lo30
+R3(config-if)# ip ospf network point-to-point
+R3(config)#int L35
+R3(config-if)# ip ospf network point-to-point
+R3(config)#int Lo40
+R3(config-if)# ip ospf network point-to-point
+
+R2# show ip ospf neighbor
+R3# show ip ospf neighbor
+R2# show ip route ospf
+R3# show ip route ospf
+
+Step 6: Configure Passive Interfaces in OSPF
+
+R3(config)# router ospf 1
+R3(config-router)# passive-interface loopback 0
+R3(config-router)# passive-interface default
+R3(config-router)# no passive-interface serial 0/0/1
+
+Step 7: Allow One-Way Redistribution
+R2(config)# router rip
+R2(config-router)# redistribute ospf 1 metric 4
+R2# sh ip protocols
+R1# sh ip route rip
+R1# ping 192.168.30.1
+R2(config)# router ospf 1
+R2(config-router)# no default-information originate
+R3# sh ip route ospf
+
+Step 8: Redistribute Between Two Routing Protocols
+R2(config)# router ospf 1
+R2(config-router)# redistribute rip
+R3# sh ip route ospf
+R2(config)# router ospf 1
+R2(config-router)# redistribute rip subnets
+R3# sh ip route ospf
+
+Step 9: Set a Default Seed Metric
+
+R2(config)# router ospf 1
+R2(config-router)# redistribute rip metric 10000
+R3# sh ip route ospf
+
+Step 10: Change the OSPF External Network Type
+R2(config)# router ospf 1
+R2(config-router)# redistribute rip metric-type 1 subnets
+R3# sh ip route ospf

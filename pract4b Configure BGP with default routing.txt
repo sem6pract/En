@@ -1,0 +1,134 @@
+
+Step 1: Configure interface Addresses
+
+Router 1:
+Router(config)#hostname ISP1
+ISP1(config)#int Lo0
+ISP1(config-if)#ip address 10.1.1.1 255.255.255.0
+ISP1(config-if)#int s0/0/0
+ISP1(config-if)#ip address 10.0.0.1 255.255.255.252
+ISP1(config-if)#clock rate 128000
+ISP1(config-if)#no shutdown
+
+Router 2:
+Router#conf t
+Router(config)#hostname ITA
+ITA(config)#int Lo0
+ITA(config-if)#ip address 192.168.0.1 255.255.255.0
+ITA(config-if)#int Lo1
+ITA(config-if)#ip address 192.168.1.1 255.255.255.0
+ITA(config-if)#int s0/0/0
+ITA(config-if)#ip address 10.0.0.2 255.255.255.252
+ITA(config-if)#no shutdown
+ITA(config-if)#int s0/0/1
+ITA(config-if)#ip address 172.16.0.2 255.255.255.252
+ITA(config-if)#clock rate 128000
+ITA(config-if)#no shutdown
+ITA(config-if)#end
+
+Router 3:
+Router#conf t
+Router(config)#hostname ISP2
+ISP2(config)#int Lo0
+ISP2(config-if)#ip address 172.16.1.1 255.255.255.0
+ISP2(config-if)#int s0/0/1
+ISP2(config-if)#ip address 172.16.0.1 255.255.255.252
+ISP2(config-if)#no shutdown
+
+Step 2: Configure BGP
+
+Router 1:
+ISP1>en
+ISP1#conf t
+ISP1(config)#router bgp 200
+ISP1(config-router)#neighbor 10.0.0.2 remote-as 100
+ISP1(config-router)#network 10.1.1.0 mask 255.255.255.0
+
+Router 3:
+ISP2#conf t
+ISP2(config)#router bgp 300
+ISP2(config-router)#neighbor 172.16.0.2 remote-as 100
+ISP2(config-router)#network 172.16.1.0 mask 255.255.255.0
+
+Router 2:
+ITA>en
+ITA#conf t
+ITA(config)#router bgp 100
+ITA(config-router)#neighbor 10.0.0.1 remote-as 200
+ITA(config-router)#neighbor 172.16.0.1 remote-as 300
+ITA(config-router)#network 192.168.0.0
+ITA(config-router)#network 192.168.1.0
+ITA#sh ip route
+10.0.0.0/8 is variably subnetted, 2 subnets, 2 masks
+C 10.0.0.0/30 is directly connected, Serial0/0/0
+B 10.1.1.0/24 [20/0] via 10.0.0.1, 00:00:00
+C 172.16.0.0/30 is directly connected, Serial0/0/1
+B 172.16.1.0/24 [20/0] via 172.16.0.1, 00:00:00
+
+Step 3: Verify BGP on the routers
+Same on all routers
+ISP2#sh ip bgp
+BGP table version is 5, local router ID is 172.16.1.1
+Network          Next Hop        Metric LocPrf Weight Path
+*> 10.1.1.0/24   172.16.0.2     0     100    200 1
+*> 172.16.1.0/24 0.0.0.0       0     0      32768 1
+*> 192.168.0.0/24 172.16.0.2   0     100    1
+*> 192.168.1.0/24 172.16.0.2   0     100    1
+
+Step 4: Configure primary and backup route using floating static route
+
+Router 2:
+ITA#conf t
+ITA(config)#ip route 0.0.0.0 0.0.0.0 10.0.0.1 210
+ITA(config)#ip route 0.0.0.0 0.0.0.0 172.16.0.1 220
+ITA#sh ip route
+Gateway of last resort is 10.0.0.1 to network 0.0.0.0
+S* 0.0.0.0/0 [210/0] via 10.0.0.1
+
+Router 1:
+ISP1#conf t
+ISP1(config)#int Lo100
+ISP1(config-if)#ip address 192.168.100.1 255.255.255.0
+
+Router 2:
+ITA#ping
+| Protocol [ip]:
+Target IP address: 192.168.100.1
+Repeat count [5]:
+Datagram size [100]:
+Timeout in seconds [2]:
+Extended commands [n]: y
+Source address or interface: 192.168.1.1
+Type of service [0]:
+Set DF bit in IP header? [no]:
+Validate reply data? [no]:
+Data pattern [0xABCD]:
+Loose, Strict, Record, Timestamp, Verbose [none]:
+Sweep range of sizes [n]:
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 192.168.100.1, timeout is 2 seconds:
+Packet sent with a source address of 192.168.1.1
+Success rate is 100 percent (5/5), round-trip min/avg/max = 1/3/6 ms
+
+Step 5: Configure primary and backup route using a default network and a static route
+
+Router 2:
+ITA#conf t
+ITA(config)#no ip route 0.0.0.0 0.0.0.0 10.0.0.1 210
+ITA(config)#no ip route 0.0.0.0 0.0.0.0 172.16.0.1 220
+
+Router 1:
+ISP1#conf t
+ISP1(config)#router bgp 200
+ISP1(config-router)#network 192.168.100.0
+
+Router 2:
+ITA#sh ip route
+Gateway of last resort is not set
+C 192.168.1.0/24 is directly connected, Loopback
+ITA#conf t
+ITA(config)#ip default-network 192.168.100.0
+ITA#sh ip route
+Gateway of last resort is 10.0.0.1 to network 192.168.100.0
+B* 192.168.100.0/24 [20/0] via 10.0.0.1, 00:00:00
+S* 0.0.0.0/0 [220/0] via 172.16.0.1

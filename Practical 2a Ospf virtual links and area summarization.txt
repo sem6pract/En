@@ -1,0 +1,160 @@
+Practical 2a: OSPF Virtual Links and Area Summarization
+
+Step 1: Configure Addressing and Loopbacks
+Router R1 Configuration
+bash
+Copy
+Edit
+R1# conf t
+R1(config)# interface Loopback1
+R1(config-if)# description Engineering Department
+R1(config-if)# ip address 10.1.1.1 255.255.255.0
+R1(config-if)# exit
+
+R1(config)# interface Loopback30
+R1(config-if)# ip address 172.30.30.1 255.255.255.252
+R1(config-if)# exit
+
+R1(config)# interface Serial0/0/0
+R1(config-if)# ip address 10.1.12.1 255.255.255.0
+R1(config-if)# clock rate 64000
+R1(config-if)# no shutdown
+R1(config-if)# exit
+Router R2 Configuration
+
+R2# conf t
+R2(config)# interface Loopback2
+R2(config-if)# description Marketing Department
+R2(config-if)# ip address 10.1.2.1 255.255.255.0
+R2(config-if)# exit
+
+R2(config)# interface Serial0/0/0
+R2(config-if)# ip address 10.1.12.2 255.255.255.0
+R2(config-if)# no shutdown
+R2(config-if)# exit
+
+R2(config)# interface Serial0/0/1
+R2(config-if)# ip address 10.1.23.2 255.255.255.0
+R2(config-if)# clock rate 64000
+R2(config-if)# no shutdown
+R2(config-if)# exit
+Router R3 Configuration
+
+R3# conf t
+R3(config)# interface Loopback3
+R3(config-if)# description Accounting Department
+R3(config-if)# ip address 10.1.3.1 255.255.255.0
+R3(config-if)# exit
+
+R3(config)# interface Loopback100
+R3(config-if)# ip address 192.168.100.1 255.255.255.0
+R3(config-if)# exit
+
+R3(config)# interface Loopback101
+R3(config-if)# ip address 192.168.101.1 255.255.255.0
+R3(config-if)# exit
+
+R3(config)# interface Loopback102
+R3(config-if)# ip address 192.168.102.1 255.255.255.0
+R3(config-if)# exit
+
+R3(config)# interface Loopback103
+R3(config-if)# ip address 192.168.103.1 255.255.255.0
+R3(config-if)# exit
+
+R3(config)# interface Serial0/0/1
+R3(config-if)# ip address 10.1.23.3 255.255.255.0
+R3(config-if)# no shutdown
+R3(config-if)# exit
+
+Step 2: Add Interfaces to OSPF
+Router R1 OSPF Configuration
+
+R1(config)# router ospf 1
+R1(config-router)# network 10.1.12.0 0.0.0.255 area 0
+R1(config-router)# network 10.1.1.0 0.0.0.255 area 0
+R1(config-router)# exit
+
+R1(config)# interface Loopback1
+R1(config-if)# ip ospf network point-to-point
+R1(config-if)# exit
+Router R2 OSPF Configuration
+
+R2(config)# router ospf 2
+R2(config-router)# network 10.1.12.0 0.0.0.255 area 0
+R2(config-router)# network 10.1.2.0 0.0.0.255 area 0
+R2(config-router)# exit
+
+R2(config)# interface Loopback2
+R2(config-if)# ip ospf network point-to-point
+R2(config-if)# exit
+
+R2# show ip ospf neighbor
+R2# show ip route
+Router R3 OSPF Configuration
+
+R3(config)# router ospf 1
+R3(config-router)# network 10.1.23.0 0.0.0.255 area 23
+R3(config-router)# network 10.1.3.0 0.0.0.255 area 23
+R3(config-router)# exit
+
+R3(config)# interface Loopback3
+R3(config-if)# ip ospf network point-to-point
+R3(config-if)# exit
+
+R2# show ip ospf neighbor
+
+Step 3: Create a Virtual Link
+Router R3 Virtual Link Configuration
+
+R3(config)# router ospf 1
+R3(config-router)# network 192.168.100.0 0.0.3.255 area 100
+R3(config-router)# exit
+
+R3(config)# interface Loopback100
+R3(config-if)# ip ospf network point-to-point
+R3(config-if)# exit
+
+R3(config)# interface Loopback101
+R3(config-if)# ip ospf network point-to-point
+R3(config-if)# exit
+
+R3(config)# interface Loopback102
+R3(config-if)# ip ospf network point-to-point
+R3(config-if)# exit
+
+R3(config)# interface Loopback103
+R3(config-if)# ip ospf network point-to-point
+R3(config-if)# exit
+Router R2 and R3 Virtual Link Configuration
+
+R2(config)# router ospf 1
+R2(config-router)# area 23 virtual-link 192.168.103.1
+R2(config-router)# exit
+
+R3(config)# router ospf 1
+R3(config-router)# area 23 virtual-link 10.1.2.1
+R3(config-router)# exit
+
+R2# show ip route
+R2# show ip ospf neighbor
+R2# show ip ospf interface
+
+Step 4: Summarize an Area
+
+R3(config)# router ospf 1
+R3(config-router)# area 100 range 192.168.100.0 255.255.252.0
+R3(config-router)# exit
+
+R2# show ip route
+R2# show ip ospf database
+R3# show ip route
+Step 5: Generate a Default Route into OSPF
+
+R1(config)# router ospf 1
+R1(config-router)# default-information originate
+R1(config-router)# exit
+
+R2,R3# show ip route
+R1# ping 172.30.30.1
+R2# ping 192.168.103.1
